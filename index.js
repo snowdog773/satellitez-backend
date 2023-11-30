@@ -6,8 +6,8 @@ require("dotenv").config();
 app.use(express.json());
 app.use(cors());
 
-app.use("/getVisibleSats", require("./routes/getVisibleSats"));
-
+app.use("/getSatellites", require("./routes/getSatellites"));
+app.use("/updateCategories", require("./routes/updateCategories"));
 app.listen(process.env.PORT || 6001, () => {
   console.log("server running");
 });
