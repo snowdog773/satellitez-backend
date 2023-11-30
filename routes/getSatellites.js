@@ -7,13 +7,21 @@ const axios = require("axios");
 const key = process.env.N2YO_KEY;
 //route is for any group of satellites selected by request parameter
 app.get("/:type", async (req, res) => {
-  const type = req.params.type;
+  const rawType = req.params.type;
+
+  //remove hyphens from type
+  let type = rawType.split("-").join("");
+  if (type === "1982092" || type === "1999025") {
+    type = "a" + type;
+  } // append a letter a to numerical queries - SQL doesn't like tables that start with numbers
+
   // get timestamp of last sql write
+
   const checkDB = await asyncMySQL(`SELECT MIN(Timestamp) FROM ${type}`);
 
   timeDiff = new Date() - checkDB[0]["MIN(Timestamp)"];
-  if (timeDiff < 2.5 * 60 * 60 * 1000) {
-    //collect the data from the database
+  if (timeDiff < 2.5 * 60 * 60 * 1000 && timeDiff > 30000) {
+    //collect the data from the database if the data is older than 30 seconds and younger than 2 hours
     const data = await asyncMySQL(
       `SELECT Name as name, TLE as tle, Norad as noradId FROM ${type}`
     );
@@ -25,9 +33,7 @@ app.get("/:type", async (req, res) => {
 
     //collect and convert data from the celestrak API
     const { data } = await axios.get(
-      type === "last30days"
-        ? `https://celestrak.org/NORAD/elements/gp.php?GROUP=last-30-days&FORMAT=tle` //SQL doesn't like hyphens!!!
-        : `https://celestrak.org/NORAD/elements/gp.php?GROUP=${type}&FORMAT=tle`
+      `https://celestrak.org/NORAD/elements/gp.php?GROUP=${rawType}&FORMAT=tle` //some queries are hyphenated so use raw version
     );
     const orderedData = tleToArray(data);
 
