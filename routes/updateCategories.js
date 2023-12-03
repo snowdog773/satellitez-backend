@@ -4,7 +4,7 @@ const asyncMySQL = require("../utils/connection");
 const getNoradId = require("../utils/getNoradId"); // pulls norad id from tle data
 const axios = require("axios");
 const tleToArray = require("../utils/tleToArray");
-
+///THIS ROUTE WAS NOT USED IN THE END
 app.get("/", async (req, res) => {
   try {
     await asyncMySQL(`TRUNCATE TABLE ${req.query.type}`);

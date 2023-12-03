@@ -1,4 +1,5 @@
 const getNoradId = require("../utils/getNoradId"); // pulls norad id from tle data
+const fixWhitespace = require("../utils/fixWhitespace");
 function tleToArray(data) {
   const splitData = data.split("\r\n");
 
@@ -6,9 +7,14 @@ function tleToArray(data) {
   let i = 0,
     len = splitData.length;
   while (i < len) {
+    let fixed;
+    typeof splitData[i + 1] === "string"
+      ? (fixed = fixWhitespace(splitData[i + 1]))
+      : (fixed = splitData[i + 1]);
+
     const item = {
       name: splitData[i],
-      tle: splitData[i + 1] + "\r\n" + splitData[i + 2],
+      tle: fixed + "\r\n" + splitData[i + 2],
       noradId: getNoradId(splitData[i + 1]),
     };
     orderedData.push(item);

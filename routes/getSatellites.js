@@ -8,7 +8,7 @@ const key = process.env.N2YO_KEY;
 //route is for any group of satellites selected by request parameter
 app.get("/:type", async (req, res) => {
   const rawType = req.params.type;
-
+  console.log("get sats route ran");
   //remove hyphens from type
   let type = rawType.split("-").join("");
   if (type === "1982092" || type === "1999025") {
@@ -20,6 +20,7 @@ app.get("/:type", async (req, res) => {
   const checkDB = await asyncMySQL(`SELECT MIN(Timestamp) FROM ${type}`);
 
   timeDiff = new Date() - checkDB[0]["MIN(Timestamp)"];
+
   if (timeDiff < 2.5 * 60 * 60 * 1000 && timeDiff > 30000) {
     //collect the data from the database if the data is older than 30 seconds and younger than 2 hours
     const data = await asyncMySQL(
