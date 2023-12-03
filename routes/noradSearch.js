@@ -7,7 +7,8 @@ app.get("/:id", async (req, res) => {
   const id = req.params.id;
   const validationCheck = await noradValidate(id);
   if (id && validationCheck) {
-    res.status(200).send("validation passed");
+    const findSat = await asyncMySQL(`SELECT * FROM active WHERE Norad=${id}`);
+    res.status(200).send(findSat);
   } else {
     res.status(400).send("invalid Norad ID submitted");
   }
