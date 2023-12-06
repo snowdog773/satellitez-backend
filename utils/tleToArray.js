@@ -13,7 +13,7 @@ function tleToArray(data) {
       : (fixed = splitData[i + 1]);
 
     const item = {
-      name: splitData[i],
+      name: splitData[i].trim(),
       tle: fixed + "\r\n" + splitData[i + 2],
       noradId: getNoradId(splitData[i + 1]),
     };

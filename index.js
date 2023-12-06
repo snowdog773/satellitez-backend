@@ -9,6 +9,7 @@ app.use(cors());
 app.use("/getSatellites", require("./routes/getSatellites"));
 app.use("/updateCategories", require("./routes/updateCategories"));
 app.use("/noradSearch", require("./routes/noradSearch"));
+app.use("/searchList", require("./routes/searchList"));
 app.listen(process.env.PORT || 6001, () => {
   console.log("server running");
 });
