@@ -19,8 +19,7 @@ app.get("/:id", async (req, res) => {
         url: `https://uphere-space1.p.rapidapi.com/satellite/${id}/details`,
         headers: {
           "x-rapidapi-host": "uphere-space1.p.rapidapi.com",
-          "x-rapidapi-key":
-            "fd0e7fa6f4msh9c28dde032e2e80p10deb9jsn913fa371e71a",
+          "x-rapidapi-key": process.env.UPHERE_KEY,
         },
       };
       const details = await axios.request(options); //from uphere docs
