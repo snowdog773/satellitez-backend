@@ -7,9 +7,19 @@ app.get("/:query", async (req, res) => {
   if (query) {
     console.log(query);
     try {
-      const list = await asyncMySQL(
+      let list = await asyncMySQL(
         `SELECT Name as name, Norad as noradId FROM active WHERE Name LIKE '${query}%'`
       );
+      if (list.length === 0) {
+        list = await asyncMySQL(
+          `SELECT Name as name, Norad as noradId FROM visual WHERE Name LIKE '${query}%'`
+        );
+      }
+      if (list.length === 0) {
+        list = await asyncMySQL(
+          `SELECT Name as name, Norad as noradId FROM last30days WHERE Name LIKE '${query}%'`
+        );
+      }
       res.send(list);
     } catch (err) {
       res.send("field empty");

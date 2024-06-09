@@ -1,10 +1,10 @@
 const mysql = require("mysql");
 
 const connection = mysql.createConnection({
-  database: "satellitez",
-  user: "root",
-  password: "",
-  host: "localhost",
+  database: process.env.DB_NAME,
+  user: process.env.SQL_USERNAME,
+  password: process.env.SQL_PASSWORD,
+  host: process.env.DB_HOST,
   port: 3306,
 });
 connection.connect();
