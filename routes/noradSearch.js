@@ -66,8 +66,8 @@ app.get("/:id", async (req, res) => {
             rcs,
           ]
         );
-      } catch {
-        res.send("API fail");
+      } catch (err) {
+        res.send("API fail", err);
         return;
       }
     }

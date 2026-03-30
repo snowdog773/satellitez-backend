@@ -1,0 +1,58 @@
+name: Deploy Satellitez API
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}-api:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          script: |
+            mkdir -p ~/apps/satellitez-api
+            cd ~/apps/satellitez-api
+            cat <<EOF > docker-compose.yml
+            services:
+              satellitez-api:
+                image: ghcr.io/${{ github.repository }}-api:latest
+                container_name: satellitez-api
+                restart: unless-stopped
+                env_file: .env
+                networks:
+                  - proxy-nw
+            networks:
+              proxy-nw:
+                external: true
+            EOF
+            docker compose pull
+            docker compose up -d
