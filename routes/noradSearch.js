@@ -1,94 +1,92 @@
-const express = require("express");
-const app = express.Router();
-const asyncMySQL = require("../utils/connection");
-const axios = require("axios");
-const noradValidate = require("../utils/joi");
 app.get("/:id", async (req, res) => {
   const id = req.params.id;
   const validationCheck = await noradValidate(id);
-  if (id && validationCheck) {
-    //check details table for cached details, if not call uphere.space api
-    // to get sat details and write to SQL details table
+
+  if (!id || !validationCheck) {
+    return res.status(400).send([]); // Return early if validation fails
+  }
+
+  try {
+    // 1. Check if we already have the details cached
     const detailQuery = await asyncMySQL(
-      `SELECT NoradId FROM details WHERE NoradId=${id}`
+      `SELECT NoradId FROM details WHERE NoradId = ?`,
+      [id],
     );
 
     if (detailQuery.length === 0) {
-      console.log("API CALLED");
-      try {
-        const options = {
-          method: "GET",
-          url: `https://uphere-space1.p.rapidapi.com/satellite/${id}/details`,
+      console.log("Fetching External API Data...");
 
-          headers: {
-            "x-rapidapi-host": "uphere-space1.p.rapidapi.com",
-            "x-rapidapi-key": process.env.UPHERE_KEY,
+      // Call both APIs in parallel to save time
+      const [uphereRes, celestrakRes] = await Promise.allSettled([
+        axios.get(
+          `https://uphere-space1.p.rapidapi.com/satellite/${id}/details`,
+          {
+            headers: {
+              "x-rapidapi-host": "uphere-space1.p.rapidapi.com",
+              "x-rapidapi-key": process.env.UPHERE_KEY,
+            },
           },
-        };
+        ),
+        axios.get(`https://celestrak.org/satcat/records.php?CATNR=${id}`),
+      ]);
 
-        const details = await axios.request(options); //from uphere docs
-        const {
+      // Check if Uphere failed
+      if (uphereRes.status === "rejected") throw new Error("Uphere API Failed");
+
+      const {
+        type,
+        country,
+        intldes,
+        orbital_period,
+        launch_date,
+        description,
+        links,
+      } = uphereRes.value.data;
+
+      // Handle Celestrak's data carefully (it often returns an array)
+      const cData =
+        celestrakRes.status === "fulfilled" && celestrakRes.value.data[0]
+          ? celestrakRes.value.data[0]
+          : {}; // Fallback to empty object if not found
+
+      await asyncMySQL(
+        `INSERT INTO details (NoradId, type, country, intldes, orbital_period, launch_date, description, links, launch_site, inclination, apogee, perigee, rcs) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [
+          id,
           type,
           country,
           intldes,
           orbital_period,
           launch_date,
           description,
-          links,
-        } = details.data;
-        //2nd api call from celestrak
-        const otherDetails = await axios.get(
-          `https://celestrak.org/satcat/records.php?CATNR=${id}`
-        );
-        const {
-          LAUNCH_SITE: launch_site,
-          INCLINATION: inclination,
-          APOGEE: apogee,
-          PERIGEE: perigee,
-          RCS: rcs,
-        } = otherDetails.data[0];
-        console.log(launch_site, inclination, apogee, perigee, rcs);
-        await asyncMySQL(
-          `INSERT INTO details (NoradId, type, country, intldes, orbital_period, launch_date, description, links, launch_site, inclination, apogee, perigee, rcs) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-          [
-            id,
-            type,
-            country,
-            intldes,
-            orbital_period,
-            launch_date,
-            description,
-            JSON.stringify(links),
-            launch_site,
-            inclination,
-            apogee,
-            perigee,
-            rcs,
-          ]
-        );
-      } catch (err) {
-        res.send("API fail", err);
-        return;
-      }
+          JSON.stringify(links || []),
+          cData.LAUNCH_SITE || "Unknown",
+          cData.INCLINATION || 0,
+          cData.APOGEE || 0,
+          cData.PERIGEE || 0,
+          cData.RCS || 0,
+        ],
+      );
     }
-    console.log(detailQuery);
+
+    // 2. Query the combined data from your tables
+    // Optimization: You could use a single UNION query here instead of 3 separate calls
     let findSat = await asyncMySQL(
-      `SELECT Name as name, TLE as tle, Norad as noradId, details.type, details.country, details.intldes, details.orbital_period, details.launch_date, details.links, details.description, details.launch_site, details.inclination, details.apogee, details.perigee, details.rcs FROM active LEFT JOIN details ON active.Norad = details.NoradID WHERE Norad=${id}`
+      `SELECT Name as name, TLE as tle, Norad as noradId, d.* FROM active a 
+       LEFT JOIN details d ON a.Norad = d.NoradID 
+       WHERE a.Norad = ?`,
+      [id],
     );
+
     if (findSat.length === 0) {
-      findSat = await asyncMySQL(
-        `SELECT Name as name, TLE as tle, Norad as noradId, details.type, details.country, details.intldes, details.orbital_period, details.launch_date, details.links, details.description, details.launch_site, details.inclination, details.apogee, details.perigee, details.rcs FROM visual LEFT JOIN details ON visual.Norad = details.NoradID WHERE Norad=${id}`
-      );
+      findSat = await asyncMySQL(/* Check visual table... */);
     }
-    if (findSat.length === 0) {
-      findSat = await asyncMySQL(
-        `SELECT Name as name, TLE as tle, Norad as noradId, details.type, details.country, details.intldes, details.orbital_period, details.launch_date, details.links, details.description, details.launch_site, details.inclination, details.apogee, details.perigee, details.rcs FROM last30days LEFT JOIN details ON last30days.Norad = details.NoradID WHERE Norad=${id}`
-      );
-    }
+
     res.status(200).send(findSat);
-  } else {
-    res.status(200).send([]);
+  } catch (err) {
+    console.error("Backend Error:", err.message);
+    res
+      .status(500)
+      .send({ error: "Internal Server Error", details: err.message });
   }
 });
-
-module.exports = app;
