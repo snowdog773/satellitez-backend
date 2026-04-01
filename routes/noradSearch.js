@@ -1,3 +1,8 @@
+const express = require("express");
+const app = express.Router();
+const asyncMySQL = require("../utils/connection");
+const axios = require("axios");
+const noradValidate = require("../utils/joi");
 app.get("/:id", async (req, res) => {
   const id = req.params.id;
   const validationCheck = await noradValidate(id);
@@ -90,3 +95,4 @@ app.get("/:id", async (req, res) => {
       .send({ error: "Internal Server Error", details: err.message });
   }
 });
+module.exports = app;
